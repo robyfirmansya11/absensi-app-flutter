@@ -52,7 +52,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: state.history.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final item = state.history[index];
 
@@ -70,7 +70,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
               trailing: Chip(
                 label: Text(_statusLabel(item.status)),
-                backgroundColor: _statusColor(item.status).withOpacity(.15),
+                backgroundColor: _statusColor(item.status).withValues(alpha: .15),
               ),
               onTap: () {
                 Navigator.push(

@@ -24,17 +24,20 @@ class AttendanceRepository {
   }
 
   /// Clock In — kirim foto selfie + koordinat GPS.
+  /// Clock In — kirim foto selfie + koordinat GPS + alasan (kalau terlambat).
   Future<ClockInResultModel> clockIn({
     required double latitude,
     required double longitude,
     required File photo,
     String? address,
+    String? reason, // ← tambah
   }) async {
     try {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
-        'address': address,
+        if (address != null) 'address': address,
+        if (reason != null) 'reason': reason, // ← tambah
         'photo': await MultipartFile.fromFile(
           photo.path,
           filename: 'clock_in_${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -52,18 +55,20 @@ class AttendanceRepository {
     }
   }
 
-  /// Clock Out — kirim foto selfie + koordinat GPS.
+  /// Clock Out — kirim foto + GPS + alasan (kalau pulang lebih awal).
   Future<Map<String, dynamic>> clockOut({
     required double latitude,
     required double longitude,
     required File photo,
     String? address,
+    String? reason, // ← tambah
   }) async {
     try {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
-        'address': address,
+        if (address != null) 'address': address,
+        if (reason != null) 'reason': reason, // ← tambah
         'photo': await MultipartFile.fromFile(
           photo.path,
           filename: 'clock_out_${DateTime.now().millisecondsSinceEpoch}.jpg',

@@ -192,7 +192,7 @@ class AttendanceDetailScreen extends StatelessWidget {
     }
 
     return Card(
-      color: color.withOpacity(.12),
+      color: color.withValues(alpha: .12),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Row(

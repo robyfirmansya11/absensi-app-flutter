@@ -61,16 +61,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.fingerprint, size: 80, color: Colors.blue),
+                  Image.asset(
+                    'assets/images/Logo_InSys.png',
+                    width: 180,
+                    height: 180,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Absensi App',
+                    '-- INSYS --',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1B4F8A),
+                    ),
+                  ),
+                  const Text(
+                    'INTERNAL SYSTEM',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      letterSpacing: 3,
+                      color: Color(0xFF5A5A6E),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Masuk dengan akun karyawan Anda',
+                    'Login With Your Account',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
@@ -89,10 +107,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Email tidak boleh kosong';
+                        return 'Email cannot be empty';
                       }
                       if (!value.contains('@')) {
-                        return 'Format email tidak valid';
+                        return 'Invalid email format';
                       }
                       return null;
                     },
@@ -124,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Password tidak boleh kosong';
+                        return 'Password cannot be empty';
                       }
                       return null;
                     },
@@ -153,7 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              'Masuk',
+                              'Login',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,

@@ -1,7 +1,8 @@
+import 'app_config.dart';
+
 class ApiConstants {
-  // IP komputer kamu di jaringan WiFi lokal — pastikan
-  // HP/emulator terhubung ke WiFi yang sama dengan komputer ini.
-  static const String baseUrl = 'http://10.0.2.2/api/v1';
+  // Base URL diambil dari AppConfig — tidak perlu ganti manual lagi
+  static String get baseUrl => AppConfig.baseUrl;
 
   // Auth
   static const String login = '/login';

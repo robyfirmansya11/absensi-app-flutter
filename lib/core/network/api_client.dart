@@ -2,21 +2,26 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../constants/api_constants.dart';
+import '../constants/app_config.dart';
 
 class ApiClient {
   late final Dio dio;
   final _storage = const FlutterSecureStorage();
 
   ApiClient() {
+    // Build headers — Host hanya ditambahkan di development
+    final Map<String, String> headers = {'Accept': 'application/json'};
+
+    if (AppConfig.hostHeader != null) {
+      headers['Host'] = AppConfig.hostHeader!;
+    }
+
     dio = Dio(
       BaseOptions(
         baseUrl: ApiConstants.baseUrl,
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 15),
-        headers: {
-          'Accept': 'application/json',
-          'Host': 'internal-system.test', // ← WAJIB untuk Herd virtual hosting
-        },
+        headers: headers,
       ),
     );
 

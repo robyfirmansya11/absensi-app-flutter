@@ -220,7 +220,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _statusColor(today!.status!).withOpacity(0.3),
+                      color: _statusColor(today!.status!).withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -247,7 +247,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(

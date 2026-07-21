@@ -30,6 +30,8 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
   String? _errorMessage;
 
+  String? _reason;
+
   @override
   void initState() {
     super.initState();
@@ -152,13 +154,98 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
     }
   }
 
+  bool _isLateNow() {
+    final now = DateTime.now();
+    final lateThreshold = DateTime(now.year, now.month, now.day, 8, 30);
+    return now.isAfter(lateThreshold);
+  }
+
+  bool _isEarlyLeaveNow() {
+    final now = DateTime.now();
+    final checkoutTime = DateTime(now.year, now.month, now.day, 17, 0);
+    return now.isBefore(checkoutTime);
+  }
+
+  Future<String?> _showReasonDialog({
+    required String title,
+    required String hint,
+  }) async {
+    final controller = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(hint, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                hintText: 'Tulis alasan di sini...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(null),
+            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Alasan tidak boleh kosong.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
+              Navigator.of(context).pop(controller.text.trim());
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Kirim', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Submit clock-in atau clock-out.
   Future<void> _submit() async {
     if (_capturedPhoto == null || _currentPosition == null) return;
 
     final isClockOut = widget.isClockOut;
-    final notifier = ref.read(attendanceProvider.notifier);
+    String? reason;
 
+    // Cek apakah perlu dialog alasan
+    if (!isClockOut && _isLateNow()) {
+      reason = await _showReasonDialog(
+        title: '⚠️ Anda Terlambat',
+        hint:
+            'Anda clock in setelah pukul 08:30.\nMohon isi alasan keterlambatan.',
+      );
+      if (reason == null) return; // user tekan Batal
+    } else if (isClockOut && _isEarlyLeaveNow()) {
+      reason = await _showReasonDialog(
+        title: '⚠️ Pulang Lebih Awal',
+        hint:
+            'Anda clock out sebelum pukul 17:00.\nMohon isi alasan pulang lebih awal.',
+      );
+      if (reason == null) return; // user tekan Batal
+    }
+
+    final notifier = ref.read(attendanceProvider.notifier);
     bool success;
 
     if (isClockOut) {
@@ -166,12 +253,14 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
         latitude: _currentPosition!.latitude,
         longitude: _currentPosition!.longitude,
         photo: _capturedPhoto!,
+        reason: reason,
       );
     } else {
       success = await notifier.clockIn(
         latitude: _currentPosition!.latitude,
         longitude: _currentPosition!.longitude,
         photo: _capturedPhoto!,
+        reason: reason,
       );
     }
 
@@ -186,7 +275,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop(true); // return true ke halaman sebelumnya
+      Navigator.of(context).pop(true);
     } else {
       final error = ref.read(attendanceProvider).errorMessage ?? 'Gagal.';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -268,9 +357,21 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   Widget _buildCamera() {
     return Stack(
       children: [
-        // Camera preview fullscreen
+        // Camera preview dengan aspect ratio yang benar
         if (_isCameraReady)
-          SizedBox.expand(child: CameraPreview(_cameraController!)),
+          SizedBox.expand(
+            child: FittedBox(
+              // Pakai contain supaya tidak gepeng
+              // Ganti ke fill kalau mau fullscreen (tapi bisa crop)
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: _cameraController!.value.previewSize!.height,
+                height: _cameraController!.value.previewSize!.width,
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
+          ),
 
         // Info GPS di bagian atas
         Positioned(
@@ -379,7 +480,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.7),
+                    color: Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(

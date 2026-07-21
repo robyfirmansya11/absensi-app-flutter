@@ -92,6 +92,7 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     required double longitude,
     required File photo,
     String? address,
+    String? reason, // ← tambah
   }) async {
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
@@ -101,9 +102,9 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
         longitude: longitude,
         photo: photo,
         address: address,
+        reason: reason, // ← tambah
       );
 
-      // Refresh status hari ini setelah berhasil
       await loadToday();
       state = state.copyWith(isSubmitting: false);
       return true;
@@ -113,12 +114,12 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     }
   }
 
-  /// Proses clock-out. Return true kalau berhasil.
   Future<bool> clockOut({
     required double latitude,
     required double longitude,
     required File photo,
     String? address,
+    String? reason, // ← tambah
   }) async {
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
@@ -128,6 +129,7 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
         longitude: longitude,
         photo: photo,
         address: address,
+        reason: reason, // ← tambah
       );
 
       await loadToday();
