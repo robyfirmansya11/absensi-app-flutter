@@ -2,7 +2,7 @@
 
 **Employee attendance, business requests, and approval workflows in one Android application.**
 
-InSys Mobile is a Flutter application connected to the InSys Laravel / Filament backend. It enables employees to record attendance, submit internal requests, and track their status, while authorized managers can review and decide requests from their phones.
+InSys Mobile is a Flutter application connected to the InSys backend. It enables employees to record attendance, submit internal requests, and track their status, while authorized managers can review and decide requests from their phones.
 
 Android is the current development and testing focus. Other platform directories are included in the project, but their presence does not imply release readiness.
 
@@ -28,7 +28,7 @@ The application also includes English interface labels, form validation, confirm
 - **Flutter Secure Storage** for authentication token storage.
 - **Geolocator, Camera, and Image Picker** for attendance capture.
 - **File Picker** for supported request attachments.
-- **Laravel / Filament REST API** for persistence, authorization, and approval processing, maintained separately.
+- **Separate backend service** for persistence, authorization, and approval processing.
 
 Dependency constraints are defined in [pubspec.yaml](pubspec.yaml), with resolved versions in [pubspec.lock](pubspec.lock).
 
@@ -67,23 +67,22 @@ Environment selection is defined in [app_config.dart](lib/core/constants/app_con
 | Setting | Development | Production |
 | --- | --- | --- |
 | `APP_ENV` | `development` (default) | `production` |
-| API base URL | `http://10.0.2.2/api/v1` | `https://insys.bumimorowaliutama.com/api/v1` |
-| Custom `Host` header | `internal-system.test` | None |
+| Backend connection | Obtain local configuration from the project maintainer | Obtain approved deployment configuration from the project maintainer |
 | Intended use | Local backend through the Android emulator | Deployed backend, including physical-device testing |
 
 Only the exact value `production` selects production; omitted or other values select development. The configuration also adjusts legacy image URLs for the selected environment.
 
 ### Local development
 
-Ensure the local backend is running and serves the `internal-system.test` virtual host on HTTP port 80. The Android emulator accesses the host computer through `10.0.2.2`.
+Obtain the required backend connection settings from the project maintainer and ensure the local service is reachable from your Android emulator.
 
 ```sh
 flutter run -d <android-device-id> --dart-define=APP_ENV=development
 ```
 
-`10.0.2.2` is an Android emulator address. It does not point to your development computer from a physical phone. Local testing on a phone requires a reachable backend address and corresponding configuration.
+Emulators and physical phones may require different connection settings. Use the configuration provided for your testing device.
 
-The current development routing relies on a custom `Host` header. A browser run is not equivalent to Android emulator testing and requires separate browser-compatible routing and CORS configuration.
+Browser testing requires a separately configured and supported environment.
 
 ### Production testing
 
@@ -121,15 +120,15 @@ To install the universal APK on a connected device with Android Platform Tools a
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-The current release build uses the **debug signing configuration** in [android/app/build.gradle.kts](android/app/build.gradle.kts). This supports direct testing, but a dedicated release signing configuration and the intended application ID must be established before publishing. The current application ID is `com.example.absensi_app_new`.
+Before publishing, confirm the approved release signing and application identity settings with the project maintainer. A successful local APK build alone does not establish distribution readiness.
 
 APK files, build outputs, local environment files, and signing key files are excluded from version control.
 
 ## Backend Integration
 
-This repository contains the mobile client. Building or pushing it does **not** deploy the Laravel / Filament backend.
+This repository contains the mobile client. Building or pushing it does **not** deploy the backend.
 
-The client uses bearer-token authentication and endpoints under `/api/v1`. Endpoint constants are maintained in [api_constants.dart](lib/core/constants/api_constants.dart), and request handling is implemented in the repositories under `lib/data/repositories/`.
+Backend access requires an authorized account. Connection details and deployment-specific API documentation should be obtained directly from the project maintainer.
 
 Before testing a module against production, ensure that its corresponding API routes and approval logic have been deployed. Reviewer access must be configured on the backend, including roles, reporting relationships, and the applicable approval stage. Mobile visibility alone does not grant permission to approve a request.
 
@@ -174,7 +173,7 @@ Tests cover request handling, validation, approval decisions, session behavior, 
 
 | Symptom | Checks |
 | --- | --- |
-| Login times out in the emulator | Confirm the local backend is running, the environment is development, and the `internal-system.test` virtual host is reachable through the emulator's host connection. |
+| Login times out in the emulator | Confirm the local backend is running and the emulator uses the connection settings provided by the project maintainer. |
 | Login fails on a physical phone | Confirm the build uses production or an explicitly configured backend reachable from the phone. |
 | An approval list is empty | Check the user's backend role, reporting relationships, pending request status, approval stage, and deployed API version. |
 | A new module returns an API error | Confirm its backend routes and controller changes have been deployed to the selected environment. |
