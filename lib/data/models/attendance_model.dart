@@ -1,14 +1,20 @@
+import '../../core/utils/english_ui.dart';
+
 class AttendanceTodayModel {
   final String date;
   final bool hasClockedIn;
   final bool hasClockedOut;
+  final bool isOutsideRadius;
   final String? clockIn;
   final String? clockOut;
   final String? status;
   final String? clockInPhoto;
   final String? Note;
+  final String? clockInLocationReason;
+  final String? clockOutLocationReason;
 
   AttendanceTodayModel({
+    this.isOutsideRadius = false,
     required this.date,
     required this.hasClockedIn,
     required this.hasClockedOut,
@@ -17,6 +23,8 @@ class AttendanceTodayModel {
     this.status,
     this.clockInPhoto,
     this.Note,
+    this.clockInLocationReason,
+    this.clockOutLocationReason,
   });
 
   factory AttendanceTodayModel.fromJson(Map<String, dynamic> json) {
@@ -29,29 +37,28 @@ class AttendanceTodayModel {
       status: json['status'] as String?,
       clockInPhoto: json['clock_in_photo'] as String?,
       Note: json['note'] as String?,
+      isOutsideRadius: json['is_outside_radius'] as bool? ?? false,
+      clockInLocationReason: json['clock_in_location_reason'] as String?,
+      clockOutLocationReason: json['clock_out_location_reason'] as String?,
     );
   }
 }
 
 class AttendanceHistoryModel {
   final int id;
-
   final String date;
-
   final String formattedDate;
-
   final String? clockIn;
   final String? clockOut;
-
   final String? status;
-
   final String? clockInPhoto;
   final String? clockOutPhoto;
-
   final String? clockInAddress;
   final String? clockOutAddress;
-
   final String? note;
+  final bool isOutsideRadius;
+  final String? clockInLocationReason;
+  final String? clockOutLocationReason;
 
   AttendanceHistoryModel({
     required this.id,
@@ -65,26 +72,27 @@ class AttendanceHistoryModel {
     this.clockInAddress,
     this.clockOutAddress,
     this.note,
+    this.isOutsideRadius = false,
+    this.clockInLocationReason,
+    this.clockOutLocationReason,
   });
 
   factory AttendanceHistoryModel.fromJson(Map<String, dynamic> json) {
     return AttendanceHistoryModel(
       id: json['id'],
       date: json['date'],
-      formattedDate: json['formatted_date'],
-
+      formattedDate: EnglishUi.date(json['date']?.toString() ?? ''),
       clockIn: json['clock_in'],
       clockOut: json['clock_out'],
-
       status: json['status'],
-
       clockInPhoto: json['clock_in_photo'],
       clockOutPhoto: json['clock_out_photo'],
-
       clockInAddress: json['clock_in_address'],
       clockOutAddress: json['clock_out_address'],
-
       note: json['note'],
+      isOutsideRadius: json['is_outside_radius'] as bool? ?? false,
+      clockInLocationReason: json['clock_in_location_reason'] as String?,
+      clockOutLocationReason: json['clock_out_location_reason'] as String?,
     );
   }
 }

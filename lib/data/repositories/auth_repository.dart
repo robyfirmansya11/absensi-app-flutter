@@ -43,12 +43,9 @@ class AuthRepository {
 
   /// Ambil profile user yang sedang login.
   Future<UserModel> getProfile() async {
-    try {
-      final response = await _apiClient.dio.get(ApiConstants.me);
-      return UserModel.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
+    // Preserve HTTP status so a temporary outage is not treated as logout.
+    final response = await _apiClient.dio.get(ApiConstants.me);
+    return UserModel.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// Cek apakah user sudah login (ada token tersimpan).
@@ -69,13 +66,13 @@ class AuthRepository {
 
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
-      return 'Koneksi timeout. Periksa jaringan internet Anda.';
+      return 'The connection timed out. Check your internet connection and try again.';
     }
 
     if (e.type == DioExceptionType.connectionError) {
-      return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      return 'Unable to connect to the server. Check your internet connection.';
     }
 
-    return 'Terjadi kesalahan. Silakan coba lagi.';
+    return 'Something went wrong. Please try again.';
   }
 }

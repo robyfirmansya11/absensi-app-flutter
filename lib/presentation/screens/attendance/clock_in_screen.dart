@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../providers/attendance_provider.dart';
+import '../../../core/utils/attendance_location.dart';
 
 class ClockInScreen extends ConsumerStatefulWidget {
   final bool isClockOut;
@@ -30,7 +31,9 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
   String? _errorMessage;
 
-  String? _reason;
+  bool _isPreparingSubmission = false;
+  bool _radiusVerified = false;
+  bool _isOutsideRadius = false;
 
   @override
   void initState() {
@@ -49,32 +52,44 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
     setState(() {
       _isInitializing = true;
       _errorMessage = null;
+      _radiusVerified = false;
     });
 
     try {
       await Future.wait([_initCamera(), _getLocation()]);
+      if (!mounted) return;
+      await _checkRadius();
     } catch (e) {
+      if (!mounted) return; // ← tambah ini
       setState(() {
         _errorMessage = e.toString();
       });
     } finally {
-      setState(() => _isInitializing = false);
+      if (mounted) setState(() => _isInitializing = false);
     }
   }
 
   /// Setup kamera depan (selfie).
   Future<void> _initCamera() async {
-    // Request permission kamera dulu sebelum init
+    final previous = _cameraController;
+    _cameraController = null;
+    _isCameraReady = false;
+    await previous?.dispose();
+    if (!mounted) return;
     final status = await Permission.camera.request();
+    if (!mounted) return;
 
     if (status.isDenied || status.isPermanentlyDenied) {
-      throw Exception('Izin kamera ditolak. Aktifkan di pengaturan aplikasi.');
+      throw Exception(
+        'Camera permission denied. Enable camera access in app settings.',
+      );
     }
 
     _cameras = await availableCameras();
+    if (!mounted) return;
 
     if (_cameras.isEmpty) {
-      throw Exception('Tidak ada kamera yang tersedia.');
+      throw Exception('No camera is available.');
     }
 
     final frontCamera = _cameras.firstWhere(
@@ -97,37 +112,63 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
   /// Minta izin lokasi dan ambil koordinat GPS.
   Future<void> _getLocation() async {
-    // Cek service GPS aktif atau tidak
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception(
-        'GPS tidak aktif. Nyalakan GPS di pengaturan perangkat Anda.',
+        'Location services are disabled. Enable them in your device settings.',
       );
     }
 
-    // Cek dan minta permission lokasi
     LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        throw Exception('Izin lokasi ditolak.');
+        throw Exception('Location permission denied.');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
       throw Exception(
-        'Izin lokasi ditolak permanen. Aktifkan di pengaturan aplikasi.',
+        'Location permission is blocked. Enable location access in app settings.',
       );
     }
 
-    // Ambil posisi saat ini
     _currentPosition = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
         timeLimit: Duration(seconds: 10),
       ),
     );
+    AttendanceLocation.validate(_currentPosition!);
+  }
+
+  /// Cek apakah posisi user berada di luar radius kantor.
+  Future<void> _checkRadius() async {
+    _radiusVerified = false;
+    final repo = ref.read(attendanceRepositoryProvider);
+    final office = await repo.getOfficeLocation();
+    if (!mounted) return;
+    if (office == null || _currentPosition == null) {
+      throw StateError(
+        'The office location is unavailable. Contact your administrator.',
+      );
+    }
+    AttendanceLocation.validate(_currentPosition!);
+
+    final distance = Geolocator.distanceBetween(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      office.latitude,
+      office.longitude,
+    );
+
+    if (!mounted) return; // ← tambah ini juga sebelum setState
+
+    setState(() {
+      _radiusVerified = true;
+      _isOutsideRadius = distance > office.radius;
+    });
   }
 
   /// Ambil foto selfie.
@@ -142,13 +183,15 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
     try {
       final xFile = await _cameraController!.takePicture();
+      if (!mounted) return;
       setState(() {
         _capturedPhoto = File(xFile.path);
         _isCapturing = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = 'Gagal mengambil foto: $e';
+        _errorMessage = 'Unable to capture photo: $e';
         _isCapturing = false;
       });
     }
@@ -187,7 +230,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
               maxLines: 3,
               maxLength: 500,
               decoration: InputDecoration(
-                hintText: 'Tulis alasan di sini...',
+                hintText: 'Enter your reason...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -198,14 +241,14 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(null),
-            child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () {
               if (controller.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Alasan tidak boleh kosong.'),
+                    content: Text('A reason is required.'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -214,7 +257,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
               Navigator.of(context).pop(controller.text.trim());
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Kirim', style: TextStyle(color: Colors.white)),
+            child: const Text('Submit', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -223,70 +266,115 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
   /// Submit clock-in atau clock-out.
   Future<void> _submit() async {
-    if (_capturedPhoto == null || _currentPosition == null) return;
-
-    final isClockOut = widget.isClockOut;
-    String? reason;
-
-    // Cek apakah perlu dialog alasan
-    if (!isClockOut && _isLateNow()) {
-      reason = await _showReasonDialog(
-        title: '⚠️ Anda Terlambat',
-        hint:
-            'Anda clock in setelah pukul 08:30.\nMohon isi alasan keterlambatan.',
-      );
-      if (reason == null) return; // user tekan Batal
-    } else if (isClockOut && _isEarlyLeaveNow()) {
-      reason = await _showReasonDialog(
-        title: '⚠️ Pulang Lebih Awal',
-        hint:
-            'Anda clock out sebelum pukul 17:00.\nMohon isi alasan pulang lebih awal.',
-      );
-      if (reason == null) return; // user tekan Batal
+    if (_capturedPhoto == null ||
+        _isPreparingSubmission ||
+        ref.read(attendanceProvider).isSubmitting) {
+      return;
     }
+    setState(() => _isPreparingSubmission = true);
+    try {
+      final isClockOut = widget.isClockOut;
+      String? reason;
+      String? locationReason;
 
-    final notifier = ref.read(attendanceProvider.notifier);
-    bool success;
+      // Cek dialog alasan terlambat/pulang awal
+      if (!isClockOut && _isLateNow()) {
+        reason = await _showReasonDialog(
+          title: 'Late Arrival',
+          hint:
+              'You are clocking in after 08:30.\nPlease provide a reason for your late arrival.',
+        );
+        if (!mounted || reason == null) return;
+      } else if (isClockOut && _isEarlyLeaveNow()) {
+        reason = await _showReasonDialog(
+          title: 'Early Departure',
+          hint:
+              'You are clocking out before 17:00.\nPlease provide a reason for leaving early.',
+        );
+        if (!mounted || reason == null) return;
+      }
 
-    if (isClockOut) {
-      success = await notifier.clockOut(
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        photo: _capturedPhoto!,
-        reason: reason,
-      );
-    } else {
-      success = await notifier.clockIn(
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
-        photo: _capturedPhoto!,
-        reason: reason,
-      );
-    }
+      // Refresh again after a reason dialog, which may stay open for minutes.
+      while (true) {
+        await _getLocation();
+        if (!mounted) return;
+        await _checkRadius();
+        if (!mounted) return;
+        if (!_radiusVerified) {
+          throw StateError(
+            'The office attendance radius has not been verified.',
+          );
+        }
+        if (!_isOutsideRadius || locationReason != null) break;
+        locationReason = await _showReasonDialog(
+          title: 'Outside Office Radius',
+          hint:
+              'You are outside the office attendance radius.\nPlease provide a reason, such as a client meeting or business travel.',
+        );
+        if (!mounted || locationReason == null) return;
+      }
+      AttendanceLocation.validate(_currentPosition!);
 
-    if (!mounted) return;
+      final notifier = ref.read(attendanceProvider.notifier);
+      bool success;
 
-    if (success) {
+      if (isClockOut) {
+        success = await notifier.clockOut(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+          photo: _capturedPhoto!,
+          reason: reason,
+          locationReason: locationReason,
+        );
+      } else {
+        success = await notifier.clockIn(
+          latitude: _currentPosition!.latitude,
+          longitude: _currentPosition!.longitude,
+          photo: _capturedPhoto!,
+          reason: reason,
+          locationReason: locationReason,
+        );
+      }
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isClockOut
+                  ? 'Clock-out recorded successfully.'
+                  : 'Clock-in recorded successfully.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else {
+        final error =
+            ref.read(attendanceProvider).errorMessage ??
+            'The operation failed.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            isClockOut ? 'Clock Out berhasil!' : 'Clock In berhasil!',
-          ),
-          backgroundColor: Colors.green,
+          content: Text('Attendance was not submitted: $e'),
+          backgroundColor: Colors.red,
         ),
       );
-      Navigator.of(context).pop(true);
-    } else {
-      final error = ref.read(attendanceProvider).errorMessage ?? 'Gagal.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
-      );
+    } finally {
+      if (mounted) setState(() => _isPreparingSubmission = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isSubmitting = ref.watch(attendanceProvider).isSubmitting;
+    final isSubmitting =
+        ref.watch(attendanceProvider).isSubmitting || _isPreparingSubmission;
     final isClockOut = widget.isClockOut;
 
     return Scaffold(
@@ -301,7 +389,6 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   }
 
   Widget _buildBody(bool isSubmitting) {
-    // Error state
     if (_errorMessage != null) {
       return Center(
         child: Padding(
@@ -319,7 +406,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _initializeAll,
-                child: const Text('Coba Lagi'),
+                child: const Text('Try Again'),
               ),
             ],
           ),
@@ -327,7 +414,6 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
       );
     }
 
-    // Loading state
     if (_isInitializing) {
       return const Center(
         child: Column(
@@ -336,7 +422,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 16),
             Text(
-              'Menyiapkan kamera & GPS...',
+              'Preparing camera and GPS...',
               style: TextStyle(color: Colors.white),
             ),
           ],
@@ -344,12 +430,10 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
       );
     }
 
-    // Foto sudah diambil — tampilkan preview + tombol submit
     if (_capturedPhoto != null) {
       return _buildPreview(isSubmitting);
     }
 
-    // Tampilkan live kamera
     return _buildCamera();
   }
 
@@ -357,12 +441,9 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   Widget _buildCamera() {
     return Stack(
       children: [
-        // Camera preview dengan aspect ratio yang benar
         if (_isCameraReady)
           SizedBox.expand(
             child: FittedBox(
-              // Pakai contain supaya tidak gepeng
-              // Ganti ke fill kalau mau fullscreen (tapi bisa crop)
               fit: BoxFit.cover,
               clipBehavior: Clip.hardEdge,
               child: SizedBox(
@@ -373,7 +454,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
             ),
           ),
 
-        // Info GPS di bagian atas
+        // Info GPS di bagian atas — sekarang tampil warning kalau di luar radius
         Positioned(
           top: 16,
           left: 16,
@@ -381,19 +462,26 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
+              color: _isOutsideRadius
+                  ? Colors.orange.withOpacity(0.9)
+                  : Colors.black.withOpacity(0.6),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.location_on, color: Colors.green, size: 16),
+                Icon(
+                  _isOutsideRadius ? Icons.warning_amber : Icons.location_on,
+                  color: _isOutsideRadius ? Colors.white : Colors.green,
+                  size: 16,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    _currentPosition != null
-                        ? 'Lat: ${_currentPosition!.latitude.toStringAsFixed(6)}\n'
-                              'Lng: ${_currentPosition!.longitude.toStringAsFixed(6)}'
-                        : 'Mengambil lokasi...',
+                    _isOutsideRadius
+                        ? 'Outside office radius'
+                        : (_radiusVerified
+                              ? 'Within office radius'
+                              : 'Office radius not verified'),
                     style: const TextStyle(color: Colors.white, fontSize: 11),
                   ),
                 ),
@@ -425,7 +513,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
           child: Column(
             children: [
               Text(
-                'Posisikan wajah di dalam lingkaran',
+                'Position your face inside the circle',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.8),
                   fontSize: 13,
@@ -465,14 +553,12 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   Widget _buildPreview(bool isSubmitting) {
     return Column(
       children: [
-        // Preview foto
         Expanded(
           child: Stack(
             fit: StackFit.expand,
             children: [
               Image.file(_capturedPhoto!, fit: BoxFit.cover),
 
-              // Info GPS overlay
               Positioned(
                 bottom: 16,
                 left: 16,
@@ -480,24 +566,34 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
+                    color: _isOutsideRadius
+                        ? Colors.orange.withOpacity(0.85)
+                        : Colors.black.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(
-                            Icons.location_on,
-                            color: Colors.green,
+                            _isOutsideRadius
+                                ? Icons.warning_amber
+                                : Icons.location_on,
+                            color: _isOutsideRadius
+                                ? Colors.white
+                                : Colors.green,
                             size: 14,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            'Lokasi GPS',
+                            _isOutsideRadius
+                                ? 'Outside Office Radius'
+                                : 'GPS Location',
                             style: TextStyle(
-                              color: Colors.green,
+                              color: _isOutsideRadius
+                                  ? Colors.white
+                                  : Colors.green,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -514,8 +610,8 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                         ),
                       ),
                       Text(
-                        'Akurasi: ${_currentPosition?.accuracy.toStringAsFixed(0)}m',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                        'Accuracy: ${_currentPosition?.accuracy.toStringAsFixed(0)}m',
+                        style: TextStyle(color: Colors.grey[300], fontSize: 11),
                       ),
                     ],
                   ),
@@ -531,7 +627,6 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Row(
             children: [
-              // Tombol retake (ambil ulang)
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: isSubmitting
@@ -539,7 +634,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                       : () => setState(() => _capturedPhoto = null),
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   label: const Text(
-                    'Ulangi',
+                    'Retake Photo',
                     style: TextStyle(color: Colors.white),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -554,7 +649,6 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
 
               const SizedBox(width: 16),
 
-              // Tombol submit
               Expanded(
                 flex: 2,
                 child: ElevatedButton.icon(
@@ -571,7 +665,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                       : Icon(widget.isClockOut ? Icons.logout : Icons.login),
                   label: Text(
                     isSubmitting
-                        ? 'Memproses...'
+                        ? 'Processing...'
                         : widget.isClockOut
                         ? 'Clock Out'
                         : 'Clock In',

@@ -24,6 +24,7 @@ class AttendanceState {
   final bool isSubmitting;
 
   final String? errorMessage;
+  final String? historyErrorMessage;
 
   AttendanceState({
     this.today,
@@ -32,6 +33,7 @@ class AttendanceState {
     this.isLoadingHistory = false,
     this.isSubmitting = false,
     this.errorMessage,
+    this.historyErrorMessage,
   });
 
   AttendanceState copyWith({
@@ -41,6 +43,8 @@ class AttendanceState {
     bool? isLoadingHistory,
     bool? isSubmitting,
     String? errorMessage,
+    String? historyErrorMessage,
+    bool clearHistoryError = false,
   }) {
     return AttendanceState(
       today: today ?? this.today,
@@ -49,6 +53,9 @@ class AttendanceState {
       isLoadingHistory: isLoadingHistory ?? this.isLoadingHistory,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage,
+      historyErrorMessage: clearHistoryError
+          ? null
+          : historyErrorMessage ?? this.historyErrorMessage,
     );
   }
 }
@@ -60,28 +67,34 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
 
   /// Ambil status absensi hari ini — dipanggil saat halaman dibuka.
   Future<void> loadToday() async {
+    if (!mounted) return;
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
       final today = await _repository.getToday();
+      if (!mounted) return;
       state = state.copyWith(today: today, isLoading: false);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }
   }
 
   /// Load riwayat absensi.
   Future<void> loadHistory() async {
-    state = state.copyWith(isLoadingHistory: true, errorMessage: null);
+    if (!mounted) return;
+    state = state.copyWith(isLoadingHistory: true, clearHistoryError: true);
 
     try {
       final history = await _repository.getHistory();
+      if (!mounted) return;
 
       state = state.copyWith(history: history, isLoadingHistory: false);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoadingHistory: false,
-        errorMessage: e.toString(),
+        historyErrorMessage: e.toString(),
       );
     }
   }
@@ -92,8 +105,10 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     required double longitude,
     required File photo,
     String? address,
-    String? reason, // ← tambah
+    String? reason,
+    String? locationReason, // ← tambah
   }) async {
+    if (!mounted) return false;
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
     try {
@@ -102,13 +117,17 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
         longitude: longitude,
         photo: photo,
         address: address,
-        reason: reason, // ← tambah
+        reason: reason,
+        locationReason: locationReason, // ← tambah
       );
+      if (!mounted) return false;
 
       await loadToday();
+      if (!mounted) return false;
       state = state.copyWith(isSubmitting: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isSubmitting: false, errorMessage: e.toString());
       return false;
     }
@@ -119,8 +138,10 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
     required double longitude,
     required File photo,
     String? address,
-    String? reason, // ← tambah
+    String? reason,
+    String? locationReason, // ← tambah
   }) async {
+    if (!mounted) return false;
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
     try {
@@ -129,13 +150,17 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
         longitude: longitude,
         photo: photo,
         address: address,
-        reason: reason, // ← tambah
+        reason: reason,
+        locationReason: locationReason, // ← tambah
       );
+      if (!mounted) return false;
 
       await loadToday();
+      if (!mounted) return false;
       state = state.copyWith(isSubmitting: false);
       return true;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isSubmitting: false, errorMessage: e.toString());
       return false;
     }
@@ -144,6 +169,7 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
 
 final attendanceProvider =
     StateNotifierProvider<AttendanceNotifier, AttendanceState>((ref) {
+      ref.watch(authProvider.select((state) => state.user));
       final repository = ref.watch(attendanceRepositoryProvider);
       return AttendanceNotifier(repository);
     });

@@ -2,9 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 
-/// Widget pengganti Image.network() yang menambahkan header Host secara otomatis.
-/// Dibutuhkan karena Herd (Laravel dev server) menggunakan virtual hosting
-/// berbasis nama domain, sehingga request tanpa header Host akan ditolak.
 class NetworkImageWithHost extends StatefulWidget {
   final String url;
   final BoxFit fit;
@@ -36,16 +33,12 @@ class _NetworkImageWithHostState extends State<NetworkImageWithHost> {
     _imageFuture = _downloadImage();
   }
 
-  /// Download gambar via Dio dengan header Host yang benar.
   Future<List<int>> _downloadImage() async {
     final dio = Dio();
 
     final response = await dio.get<List<int>>(
       widget.url,
-      options: Options(
-        responseType: ResponseType.bytes,
-        headers: {'Host': 'internal-system.test'},
-      ),
+      options: Options(responseType: ResponseType.bytes),
     );
 
     return response.data!;
@@ -76,7 +69,7 @@ class _NetworkImageWithHostState extends State<NetworkImageWithHost> {
         }
 
         return Image.memory(
-          snapshot.data!.toUint8List(),
+          Uint8List.fromList(snapshot.data!),
           fit: widget.fit,
           height: widget.height,
           width: widget.width,
@@ -93,9 +86,4 @@ class _NetworkImageWithHostState extends State<NetworkImageWithHost> {
       },
     );
   }
-}
-
-// Extension untuk konversi List<int> ke Uint8List
-extension on List<int> {
-  Uint8List toUint8List() => Uint8List.fromList(this);
 }

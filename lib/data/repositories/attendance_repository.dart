@@ -23,21 +23,23 @@ class AttendanceRepository {
     }
   }
 
-  /// Clock In — kirim foto selfie + koordinat GPS.
-  /// Clock In — kirim foto selfie + koordinat GPS + alasan (kalau terlambat).
+  /// Clock In — kirim foto selfie + koordinat GPS + alasan (kalau terlambat/luar radius).
   Future<ClockInResultModel> clockIn({
     required double latitude,
     required double longitude,
     required File photo,
     String? address,
-    String? reason, // ← tambah
+    String? reason,
+    String? locationReason, // ← tambah
   }) async {
     try {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
         if (address != null) 'address': address,
-        if (reason != null) 'reason': reason, // ← tambah
+        if (reason != null) 'reason': reason,
+        if (locationReason != null)
+          'location_reason': locationReason, // ← tambah
         'photo': await MultipartFile.fromFile(
           photo.path,
           filename: 'clock_in_${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -55,20 +57,23 @@ class AttendanceRepository {
     }
   }
 
-  /// Clock Out — kirim foto + GPS + alasan (kalau pulang lebih awal).
+  /// Clock Out — kirim foto + GPS + alasan (kalau pulang lebih awal/luar radius).
   Future<Map<String, dynamic>> clockOut({
     required double latitude,
     required double longitude,
     required File photo,
     String? address,
-    String? reason, // ← tambah
+    String? reason,
+    String? locationReason, // ← tambah
   }) async {
     try {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
         if (address != null) 'address': address,
-        if (reason != null) 'reason': reason, // ← tambah
+        if (reason != null) 'reason': reason,
+        if (locationReason != null)
+          'location_reason': locationReason, // ← tambah
         'photo': await MultipartFile.fromFile(
           photo.path,
           filename: 'clock_out_${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -89,22 +94,53 @@ class AttendanceRepository {
   /// Ambil riwayat absensi (paginated dari Laravel).
   Future<List<AttendanceHistoryModel>> getHistory() async {
     try {
-      final response = await _apiClient.dio.get(ApiConstants.attendanceHistory);
-
-      final data = response.data['data'] as List;
-
-      return data
-          .map(
-            (item) =>
-                AttendanceHistoryModel.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
+      final history = <int, AttendanceHistoryModel>{};
+      final session = _apiClient.sessionVersion;
+      var page = 1;
+      while (true) {
+        if (session != _apiClient.sessionVersion) {
+          throw StateError(
+            'Your session has changed. Refresh the attendance history.',
+          );
+        }
+        final response = await _apiClient.dio.get(
+          ApiConstants.attendanceHistory,
+          queryParameters: {'page': page},
+        );
+        final body = response.data as Map<String, dynamic>;
+        if (session != _apiClient.sessionVersion) {
+          throw StateError(
+            'Your session has changed. Refresh the attendance history.',
+          );
+        }
+        final data = body['data'] as List;
+        final previousCount = history.length;
+        for (final item in data) {
+          final attendance = AttendanceHistoryModel.fromJson(
+            item as Map<String, dynamic>,
+          );
+          history[attendance.id] = attendance;
+        }
+        // Support both Laravel paginator and API Resource envelopes.
+        final meta = body['meta'] as Map<String, dynamic>? ?? body;
+        final lastPage = int.tryParse('${meta['last_page']}');
+        final links = body['links'];
+        final next =
+            body['next_page_url'] ?? (links is Map ? links['next'] : null);
+        final hasNext = lastPage != null ? page < lastPage : next != null;
+        if (!hasNext) break;
+        if (history.length == previousCount) {
+          throw const FormatException('Attendance pagination did not advance.');
+        }
+        page++;
+      }
+      return history.values.toList();
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
 
-  /// Ambil info lokasi kantor (untuk validasi radius di sisi UI/peta).
+  /// Ambil info lokasi kantor (untuk validasi radius di sisi UI).
   Future<OfficeLocationModel?> getOfficeLocation() async {
     try {
       final response = await _apiClient.dio.get(ApiConstants.officeLocation);
@@ -113,7 +149,6 @@ class AttendanceRepository {
         response.data as Map<String, dynamic>,
       );
     } on DioException catch (e) {
-      // 404 artinya lokasi kantor belum dikonfigurasi — bukan error fatal
       if (e.response?.statusCode == 404) {
         return null;
       }
@@ -132,13 +167,13 @@ class AttendanceRepository {
 
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
-      return 'Koneksi timeout. Periksa jaringan internet Anda.';
+      return 'The connection timed out. Check your internet connection and try again.';
     }
 
     if (e.type == DioExceptionType.connectionError) {
-      return 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+      return 'Unable to connect to the server. Check your internet connection.';
     }
 
-    return 'Terjadi kesalahan. Silakan coba lagi.';
+    return 'Something went wrong. Please try again.';
   }
 }

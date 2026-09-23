@@ -16,11 +16,11 @@ class AttendanceDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Detail Absensi")),
+      appBar: AppBar(title: const Text("Attendance Details")),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _sectionTitle("Tanggal"),
+          _sectionTitle("Date"),
           _infoCard(Icons.calendar_today, attendance.date),
 
           const SizedBox(height: 20),
@@ -30,7 +30,7 @@ class AttendanceDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          _sectionTitle("Jam"),
+          _sectionTitle("Time"),
           Row(
             children: [
               Expanded(
@@ -50,7 +50,7 @@ class AttendanceDetailScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle("Foto Clock In"),
+                _sectionTitle("Clock-in Photo"),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: NetworkImageWithHost(
@@ -69,7 +69,7 @@ class AttendanceDetailScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle("Foto Clock Out"),
+                _sectionTitle("Clock-out Photo"),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: NetworkImageWithHost(
@@ -87,7 +87,7 @@ class AttendanceDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                _sectionTitle("Lokasi Pulang"),
+                _sectionTitle("Clock-out Location"),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -104,7 +104,7 @@ class AttendanceDetailScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle("Lokasi Masuk"),
+                _sectionTitle("Clock-in Location"),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -121,7 +121,7 @@ class AttendanceDetailScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle("Catatan"),
+                _sectionTitle("Notes"),
                 Card(
                   color: Colors.orange.shade50,
                   child: Padding(
@@ -176,15 +176,15 @@ class AttendanceDetailScreen extends StatelessWidget {
     switch (attendance.status) {
       case "present":
         color = Colors.green;
-        text = "Hadir";
+        text = "Present";
         break;
       case "late":
         color = Colors.orange;
-        text = "Terlambat";
+        text = "Late";
         break;
       case "absent":
         color = Colors.red;
-        text = "Tidak Hadir";
+        text = "Absent";
         break;
       default:
         color = Colors.grey;

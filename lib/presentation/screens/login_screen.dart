@@ -38,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context,
       ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
     } else {
-      final error = ref.read(authProvider).errorMessage ?? 'Login gagal.';
+      final error = ref.read(authProvider).errorMessage ?? 'Unable to sign in.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error), backgroundColor: Colors.red),
       );
@@ -63,8 +63,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Image.asset(
                     'assets/images/Logo_InSys.png',
-                    width: 180,
-                    height: 180,
+                    width: 260,
+                    height: 260,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -88,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Login With Your Account',
+                    'Sign in to your account',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
@@ -171,7 +171,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               ),
                             )
                           : const Text(
-                              'Login',
+                              'Sign In',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,

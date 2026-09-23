@@ -1,30 +1,61 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:absensi_app_new/core/network/api_client.dart';
+import 'package:absensi_app_new/presentation/providers/auth_provider.dart';
+import 'package:absensi_app_new/presentation/screens/attendance/history_screen.dart';
+import 'package:absensi_app_new/presentation/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:absensi_app_new/main.dart';
+import 'support/api_stub.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+  testWidgets('history failure shows retry and can recover', (tester) async {
+    final client = ApiClient();
+    var fail = true;
+    client.dio.httpClientAdapter = ApiStub(
+      (_) => fail
+          ? jsonResponse({'message': 'Server sedang bermasalah'}, status: 503)
+          : jsonResponse({'data': []}),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [apiClientProvider.overrideWithValue(client)],
+        child: const MaterialApp(home: HistoryScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Server sedang bermasalah'), findsOneWidget);
+    expect(find.text('No attendance records found'), findsNothing);
+    fail = false;
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+    expect(find.text('No attendance records found'), findsOneWidget);
+    expect(find.text('Refresh'), findsOneWidget);
+  });
+  testWidgets('splash keeps session on server failure and offers retry', (
+    tester,
+  ) async {
+    final client = ApiClient();
+    await client.saveToken('valid');
+    var attempts = 0;
+    client.dio.httpClientAdapter = ApiStub((_) {
+      attempts++;
+      return jsonResponse({}, status: 503);
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [apiClientProvider.overrideWithValue(client)],
+        child: const MaterialApp(home: SplashScreen()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Try Again'), findsOneWidget);
+    expect(await client.getToken(), 'valid');
+    await tester.tap(find.text('Try Again'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.byType(SplashScreen), findsOneWidget);
   });
 }

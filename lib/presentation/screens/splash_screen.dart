@@ -63,6 +63,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     final authState = ref.read(authProvider);
+    if (authState.errorMessage != null) return;
 
     if (authState.user != null) {
       // Token valid → langsung ke Home
@@ -91,6 +92,27 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    if (authState.errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(authState.errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: authState.isLoading ? null : _checkAuthAndNavigate,
+                  child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -106,9 +128,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   children: [
                     // Logo InSys
                     Image.asset(
-                      'assets/images/logo_insys.png',
-                      width: 140,
-                      height: 140,
+                      'assets/images/Logo_InSys.png',
+                      width: 260,
+                      height: 260,
                     ),
 
                     const SizedBox(height: 20),
@@ -148,7 +170,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     const SizedBox(height: 16),
 
                     Text(
-                      'Memuat...',
+                      'Loading...',
                       style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                     ),
                   ],
