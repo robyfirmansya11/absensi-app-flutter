@@ -1,15 +1,52 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../presentation/providers/auth_provider.dart';
+import '../constants/app_config.dart';
 
-class NetworkImageWithHost extends StatefulWidget {
+final attendancePhotoProvider = FutureProvider.autoDispose
+    .family<List<int>, String>((ref, url) async {
+      // Discard photos when the signed-in account changes.
+      final user = ref.watch(authProvider.select((state) => state.user));
+      if (user == null) throw StateError('Sign in to view attendance photos.');
+      final client = ref.watch(apiClientProvider);
+      final session = client.sessionVersion;
+      final base = Uri.parse(client.dio.options.baseUrl);
+      final uri = base.resolve(AppConfig.fixImageUrl(url));
+      if (uri.origin != base.origin || uri.userInfo.isNotEmpty) {
+        throw StateError('The photo URL does not belong to this server.');
+      }
+      final cancel = CancelToken();
+      ref.onDispose(() => cancel.cancel());
+      final token = await client.getToken();
+      if (token == null ||
+          session != client.sessionVersion ||
+          cancel.isCancelled) {
+        throw StateError('Your session has changed. Sign in again.');
+      }
+      final response = await client.dio.get<List<int>>(
+        uri.toString(),
+        cancelToken: cancel,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: false,
+          headers: {'Accept': 'image/*'},
+        ),
+      );
+      if (session != client.sessionVersion || cancel.isCancelled) {
+        throw StateError('Your session has changed.');
+      }
+      return response.data!;
+    });
+
+class NetworkImageWithHost extends ConsumerWidget {
   final String url;
   final BoxFit fit;
   final double? height;
   final double? width;
   final Widget? errorWidget;
   final Widget? loadingWidget;
-
   const NetworkImageWithHost({
     super.key,
     required this.url,
@@ -21,69 +58,40 @@ class NetworkImageWithHost extends StatefulWidget {
   });
 
   @override
-  State<NetworkImageWithHost> createState() => _NetworkImageWithHostState();
-}
-
-class _NetworkImageWithHostState extends State<NetworkImageWithHost> {
-  late Future<List<int>> _imageFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _imageFuture = _downloadImage();
-  }
-
-  Future<List<int>> _downloadImage() async {
-    final dio = Dio();
-
-    final response = await dio.get<List<int>>(
-      widget.url,
-      options: Options(responseType: ResponseType.bytes),
-    );
-
-    return response.data!;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<int>>(
-      future: _imageFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return widget.loadingWidget ??
-              SizedBox(
-                height: widget.height ?? 200,
-                child: const Center(child: CircularProgressIndicator()),
-              );
-        }
-
-        if (snapshot.hasError || !snapshot.hasData) {
-          return widget.errorWidget ??
-              Container(
-                height: widget.height ?? 200,
-                color: Colors.grey[200],
-                child: const Center(
-                  child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                ),
-              );
-        }
-
-        return Image.memory(
-          Uint8List.fromList(snapshot.data!),
-          fit: widget.fit,
-          height: widget.height,
-          width: widget.width,
-          errorBuilder: (context, error, stackTrace) =>
-              widget.errorWidget ??
-              Container(
-                height: widget.height ?? 200,
-                color: Colors.grey[200],
-                child: const Center(
-                  child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
-                ),
-              ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    Widget failure() =>
+        errorWidget ??
+        SizedBox(
+          height: height ?? 200,
+          width: width,
+          child: Center(
+            child: TextButton.icon(
+              onPressed: () => ref.invalidate(attendancePhotoProvider(url)),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Unable to load photo. Retry'),
+            ),
+          ),
         );
-      },
-    );
+    return ref
+        .watch(attendancePhotoProvider(url))
+        .when(
+          skipLoadingOnRefresh: false,
+          skipLoadingOnReload: false,
+          loading: () =>
+              loadingWidget ??
+              SizedBox(
+                height: height ?? 200,
+                width: width,
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+          error: (_, _) => failure(),
+          data: (bytes) => Image.memory(
+            Uint8List.fromList(bytes),
+            fit: fit,
+            height: height,
+            width: width,
+            errorBuilder: (_, _, _) => failure(),
+          ),
+        );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/widgets/network_image_with_host.dart';
 
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
@@ -10,6 +11,12 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final photoUrl = user?.foto?.trim();
+    const avatarPlaceholder = Icon(
+      Icons.person,
+      size: 48,
+      color: Color(0xFF1B4F8A),
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
@@ -41,10 +48,29 @@ class ProfileScreen extends ConsumerWidget {
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 48,
-                      color: Color(0xFF1B4F8A),
+                    child: ClipOval(
+                      child: photoUrl == null || photoUrl.isEmpty
+                          ? avatarPlaceholder
+                          : Semantics(
+                              label: 'Profile photo',
+                              image: true,
+                              child: NetworkImageWithHost(
+                                url: photoUrl,
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                                errorWidget: avatarPlaceholder,
+                                loadingWidget: const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
 
