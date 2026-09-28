@@ -103,6 +103,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
   Future<bool> clockIn({
     required double latitude,
     required double longitude,
+    required double gpsAccuracy,
+    required bool isMockLocation,
     required File photo,
     String? address,
     String? reason,
@@ -115,6 +117,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
       await _repository.clockIn(
         latitude: latitude,
         longitude: longitude,
+        gpsAccuracy: gpsAccuracy,
+        isMockLocation: isMockLocation,
         photo: photo,
         address: address,
         reason: reason,
@@ -136,6 +140,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
   Future<bool> clockOut({
     required double latitude,
     required double longitude,
+    required double gpsAccuracy,
+    required bool isMockLocation,
     required File photo,
     String? address,
     String? reason,
@@ -148,6 +154,8 @@ class AttendanceNotifier extends StateNotifier<AttendanceState> {
       await _repository.clockOut(
         latitude: latitude,
         longitude: longitude,
+        gpsAccuracy: gpsAccuracy,
+        isMockLocation: isMockLocation,
         photo: photo,
         address: address,
         reason: reason,

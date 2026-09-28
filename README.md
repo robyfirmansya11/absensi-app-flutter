@@ -12,13 +12,15 @@ Android is the current development and testing focus. Other platform directories
 | --- | --- |
 | Attendance | Clock In, Clock Out, location and camera capture, attendance history, and monthly summaries |
 | HRIS | Late Working Permits, Leave Requests, Overtime Requests, and Travel Reimbursements |
-| Finance, Accounting & Tax | Loan Note, Payment Application Letter, and Expense Reimbursement Note |
+| Finance, Accounting & Tax | Loan Note, Payment Application Letter, Expense Reimbursement Note, and Meal Claims |
 | Legal & Litigation | Register Letter and Stamp Application Letter |
 | Account | Authentication, employee profile, and session handling |
 
 Supported request modules include approval interfaces for authorized reviewers. Available actions depend on the user's role, reporting relationships, request status, and the backend approval rules. Leave approvals have a dedicated screen; other supported approval modules provide a **Pending Approvals** view alongside **My Requests**.
 
 The application also includes English interface labels, form validation, confirmation dialogs, rejection reasons, attachment uploads where supported, and connectivity feedback. An internet connection is required for server operations; connectivity feedback does not provide offline submission or synchronization.
+
+Meal Claims supports up to 20 receipt photos per submission, claim corrections, receipt verification, approval, and payment recording. Available review actions follow backend permissions. Receipt photos require authenticated access. Receipt OCR scanning remains available through the backend interface.
 
 ## Technology
 

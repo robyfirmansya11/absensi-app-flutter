@@ -12,6 +12,8 @@ class AttendanceTodayModel {
   final String? Note;
   final String? clockInLocationReason;
   final String? clockOutLocationReason;
+  final OfficeLocationModel? clockInOfficeLocation;
+  final OfficeLocationModel? clockOutOfficeLocation;
 
   AttendanceTodayModel({
     this.isOutsideRadius = false,
@@ -25,6 +27,8 @@ class AttendanceTodayModel {
     this.Note,
     this.clockInLocationReason,
     this.clockOutLocationReason,
+    this.clockInOfficeLocation,
+    this.clockOutOfficeLocation,
   });
 
   factory AttendanceTodayModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,16 @@ class AttendanceTodayModel {
       isOutsideRadius: json['is_outside_radius'] as bool? ?? false,
       clockInLocationReason: json['clock_in_location_reason'] as String?,
       clockOutLocationReason: json['clock_out_location_reason'] as String?,
+      clockInOfficeLocation: json['clock_in_office_location'] == null
+          ? null
+          : OfficeLocationModel.fromJson(
+              Map<String, dynamic>.from(json['clock_in_office_location']),
+            ),
+      clockOutOfficeLocation: json['clock_out_office_location'] == null
+          ? null
+          : OfficeLocationModel.fromJson(
+              Map<String, dynamic>.from(json['clock_out_office_location']),
+            ),
     );
   }
 }
@@ -59,6 +73,8 @@ class AttendanceHistoryModel {
   final bool isOutsideRadius;
   final String? clockInLocationReason;
   final String? clockOutLocationReason;
+  final OfficeLocationModel? clockInOfficeLocation;
+  final OfficeLocationModel? clockOutOfficeLocation;
 
   AttendanceHistoryModel({
     required this.id,
@@ -75,6 +91,8 @@ class AttendanceHistoryModel {
     this.isOutsideRadius = false,
     this.clockInLocationReason,
     this.clockOutLocationReason,
+    this.clockInOfficeLocation,
+    this.clockOutOfficeLocation,
   });
 
   factory AttendanceHistoryModel.fromJson(Map<String, dynamic> json) {
@@ -93,6 +111,16 @@ class AttendanceHistoryModel {
       isOutsideRadius: json['is_outside_radius'] as bool? ?? false,
       clockInLocationReason: json['clock_in_location_reason'] as String?,
       clockOutLocationReason: json['clock_out_location_reason'] as String?,
+      clockInOfficeLocation: json['clock_in_office_location'] == null
+          ? null
+          : OfficeLocationModel.fromJson(
+              Map<String, dynamic>.from(json['clock_in_office_location']),
+            ),
+      clockOutOfficeLocation: json['clock_out_office_location'] == null
+          ? null
+          : OfficeLocationModel.fromJson(
+              Map<String, dynamic>.from(json['clock_out_office_location']),
+            ),
     );
   }
 }

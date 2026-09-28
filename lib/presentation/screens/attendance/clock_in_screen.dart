@@ -34,6 +34,7 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   bool _isPreparingSubmission = false;
   bool _radiusVerified = false;
   bool _isOutsideRadius = false;
+  AttendanceOfficeMatch? _officeMatch;
 
   @override
   void initState() {
@@ -147,27 +148,23 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
   Future<void> _checkRadius() async {
     _radiusVerified = false;
     final repo = ref.read(attendanceRepositoryProvider);
-    final office = await repo.getOfficeLocation();
+    final offices = await repo.getOfficeLocations();
     if (!mounted) return;
-    if (office == null || _currentPosition == null) {
+    if (offices.isEmpty || _currentPosition == null) {
       throw StateError(
-        'The office location is unavailable. Contact your administrator.',
+        'No active office location is available. Contact your administrator.',
       );
     }
     AttendanceLocation.validate(_currentPosition!);
-
-    final distance = Geolocator.distanceBetween(
+    final match = AttendanceOfficeMatch.nearest(
+      offices,
       _currentPosition!.latitude,
       _currentPosition!.longitude,
-      office.latitude,
-      office.longitude,
-    );
-
-    if (!mounted) return; // ← tambah ini juga sebelum setState
-
+    )!;
     setState(() {
       _radiusVerified = true;
-      _isOutsideRadius = distance > office.radius;
+      _officeMatch = match;
+      _isOutsideRadius = match.isOutsideRadius;
     });
   }
 
@@ -322,6 +319,8 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
         success = await notifier.clockOut(
           latitude: _currentPosition!.latitude,
           longitude: _currentPosition!.longitude,
+          gpsAccuracy: _currentPosition!.accuracy,
+          isMockLocation: _currentPosition!.isMocked,
           photo: _capturedPhoto!,
           reason: reason,
           locationReason: locationReason,
@@ -330,6 +329,8 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
         success = await notifier.clockIn(
           latitude: _currentPosition!.latitude,
           longitude: _currentPosition!.longitude,
+          gpsAccuracy: _currentPosition!.accuracy,
+          isMockLocation: _currentPosition!.isMocked,
           photo: _capturedPhoto!,
           reason: reason,
           locationReason: locationReason,
@@ -601,6 +602,14 @@ class _ClockInScreenState extends ConsumerState<ClockInScreen> {
                         ],
                       ),
                       const SizedBox(height: 4),
+                      if (_officeMatch != null)
+                        Text(
+                          'Nearest Site: ${_officeMatch!.office.name}\nDistance: ${_officeMatch!.distance}m · Radius: ${_officeMatch!.office.radius}m',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
+                        ),
                       Text(
                         'Lat: ${_currentPosition?.latitude.toStringAsFixed(6)}\n'
                         'Lng: ${_currentPosition?.longitude.toStringAsFixed(6)}',

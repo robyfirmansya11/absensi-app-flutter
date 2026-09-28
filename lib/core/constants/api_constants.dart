@@ -20,6 +20,7 @@ class ApiConstants {
   static const String overtime = '/overtime';
   static const String latePermit = '/late-working-permits';
   static const String travel = '/travel-reimbursements';
+  static const String meal = '/meal-claims';
   static const String expense = '/expense-reimbursements';
   static const String loan = '/loan-notes';
   static const String stamp = '/stamp-applications';

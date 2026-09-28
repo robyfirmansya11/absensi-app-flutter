@@ -1,3 +1,4 @@
+import 'meal/meal_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -257,6 +258,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       icon: Icons.account_balance_outlined,
                       children: [
                         _buildMenuItem(
+                          'Meal Claims',
+                          Icons.restaurant_outlined,
+                          const MealScreen(),
+                        ),
+                        _buildMenuItem(
                           'Loan Note',
                           Icons.payments_outlined,
                           const LoanScreen(),
@@ -398,6 +404,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
+                if (today?.clockInOfficeLocation != null)
+                  Text(
+                    'Clock-in Site: ${today!.clockInOfficeLocation!.name}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                if (today?.clockOutOfficeLocation != null)
+                  Text(
+                    'Clock-out Site: ${today!.clockOutOfficeLocation!.name}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
                 const Text(
                   'Office Hours: 08:00 – 17:00',
                   style: TextStyle(color: Colors.white60, fontSize: 11),

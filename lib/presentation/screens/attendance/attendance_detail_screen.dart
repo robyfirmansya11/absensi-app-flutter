@@ -30,6 +30,20 @@ class AttendanceDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
+          if (attendance.clockInOfficeLocation != null) ...[
+            _sectionTitle('Clock-in Site'),
+            _infoCard(
+              Icons.location_on,
+              attendance.clockInOfficeLocation!.name,
+            ),
+          ],
+          if (attendance.clockOutOfficeLocation != null) ...[
+            _sectionTitle('Clock-out Site'),
+            _infoCard(
+              Icons.location_on,
+              attendance.clockOutOfficeLocation!.name,
+            ),
+          ],
           _sectionTitle("Time"),
           Row(
             children: [

@@ -87,3 +87,6 @@ app.*.map.json
 
 # Web build
 /web/build/
+
+# Locally generated documents and supporting scripts
+/outputs/

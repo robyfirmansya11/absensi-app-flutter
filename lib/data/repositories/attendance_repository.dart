@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../core/constants/api_constants.dart';
+import '../../core/utils/attendance_device.dart';
 import '../../core/network/api_client.dart';
 import '../models/attendance_model.dart';
 
@@ -27,6 +28,8 @@ class AttendanceRepository {
   Future<ClockInResultModel> clockIn({
     required double latitude,
     required double longitude,
+    required double gpsAccuracy,
+    required bool isMockLocation,
     required File photo,
     String? address,
     String? reason,
@@ -36,6 +39,11 @@ class AttendanceRepository {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
+        'gps_accuracy': gpsAccuracy,
+        'device_id': await AttendanceDevice.getId(),
+        'is_mock_location': isMockLocation ? '1' : '0',
+        if (Platform.isAndroid) 'device_platform': 'android',
+        if (Platform.isIOS) 'device_platform': 'ios',
         if (address != null) 'address': address,
         if (reason != null) 'reason': reason,
         if (locationReason != null)
@@ -61,6 +69,8 @@ class AttendanceRepository {
   Future<Map<String, dynamic>> clockOut({
     required double latitude,
     required double longitude,
+    required double gpsAccuracy,
+    required bool isMockLocation,
     required File photo,
     String? address,
     String? reason,
@@ -70,6 +80,11 @@ class AttendanceRepository {
       final formData = FormData.fromMap({
         'latitude': latitude,
         'longitude': longitude,
+        'gps_accuracy': gpsAccuracy,
+        'device_id': await AttendanceDevice.getId(),
+        'is_mock_location': isMockLocation ? '1' : '0',
+        if (Platform.isAndroid) 'device_platform': 'android',
+        if (Platform.isIOS) 'device_platform': 'ios',
         if (address != null) 'address': address,
         if (reason != null) 'reason': reason,
         if (locationReason != null)
@@ -141,16 +156,24 @@ class AttendanceRepository {
   }
 
   /// Ambil info lokasi kantor (untuk validasi radius di sisi UI).
-  Future<OfficeLocationModel?> getOfficeLocation() async {
+  Future<List<OfficeLocationModel>> getOfficeLocations() async {
     try {
       final response = await _apiClient.dio.get(ApiConstants.officeLocation);
 
-      return OfficeLocationModel.fromJson(
-        response.data as Map<String, dynamic>,
-      );
+      final body = response.data as Map<String, dynamic>;
+      final locations = body['locations'];
+      if (locations is List) {
+        return locations
+            .map(
+              (row) =>
+                  OfficeLocationModel.fromJson(Map<String, dynamic>.from(row)),
+            )
+            .toList();
+      }
+      return [OfficeLocationModel.fromJson(body)];
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) {
-        return null;
+        return [];
       }
       throw _handleError(e);
     }
